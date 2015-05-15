@@ -1,0 +1,3 @@
+[submodule "src/slre"]
+	path = src/slre
+	url = https://github.com/sebgod/slre
