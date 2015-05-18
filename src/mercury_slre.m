@@ -22,39 +22,42 @@
 
 %----------------------------------------------------------------------------%
 
+:- type match
+    --->    match(
+                match_captures  :: captures,
+                match_length    :: int
+            ).
+
 :- type captures == list(string).
 
-:- type result
-    --->    ok(captures)
-    ;       error(match_error).
-
-:- type match_error
-    --->    no_match
-    ;       unexpected_quantifier
-    ;       unbalanced_brackets
-    ;       internal_error
-    ;       invalid_character_set
-    ;       invalid_metacharacter
-    ;       caps_array_too_small
-    ;       too_many_branches
-    ;       too_many_brackets.
-
-    % match(RegEx, Text, NumberOfCaptures) = Result.
+    % matches(RegEx, Text, NumberOfCaptures, Match):
     %
-:- func match(string, string, int) = result.
+    % Fails if no match was found.
+    %
+:- pred matches(string::in, string::in, int::in, match::out) is semidet.
 
 %----------------------------------------------------------------------------%
 %----------------------------------------------------------------------------%
 
 :- implementation.
 
-match(RegEx, Text, NumberOfCaptures) = Result :-
-    slre_match(RegEx, Text, NumberOfCaptures, ResultCode),
-    Result = ok([]).
+:- import_module int.     % for `>='/2
+:- import_module require.
+
+matches(RegEx, Text, NumberOfCaptures, Match) :-
+    match_impl(RegEx, Text, NumberOfCaptures, Length, CapturesRev),
+    ( if Length >= 0 then
+        Match = match(Captures, Length),
+        Captures = reverse(CapturesRev)
+    else if error_code_message(Length, Message) then
+        unexpected($file, $pred, Message)
+    else
+        fail
+    ).
 
 %----------------------------------------------------------------------------%
 %
-% Implemtation of functions and types in C
+% Implementation of functions and types in C
 %
 
     % `include_file()' is preferred over `#include', since then linking
@@ -62,18 +65,81 @@ match(RegEx, Text, NumberOfCaptures) = Result :-
     %
 :- pragma foreign_decl("C", include_file("slre.h")).
 
-:- pred slre_match(string::in, string::in, NumberOfMatches::in,
-    int::out) is det.
+    % match_impl(RegEx, Text, NumberOfCaptures, ResultCode, CapturesRev):
+    %
+:- pred match_impl(string::in, string::in, int::in,
+    int::out, captures::out) is det.
 
 :- pragma foreign_proc("C",
-    slre_match(RegEx::in, Text::in, NumberOfCaptures::in, ResultCode::out),
-    [promise_pure, will_not_call_mercury],
+    match_impl(RegEx::in, Text::in, NumberOfCaptures::in,
+        ScannedCodeUnits::out, CapturesRev::out),
+    [promise_pure, may_call_mercury],
 "
-    struct slre_cap captures[NumberOfCaptures];
-    ResultCode = slre_match(RegEx, Text, strlen(Text), captures,
-        NumberOfCaptures, 0);
+    struct slre_cap local_captures[NumberOfCaptures];
+    ScannedCodeUnits = slre_match(RegEx, Text, strlen(Text),
+        local_captures, NumberOfCaptures, 0);
+
+    CapturesRev = MR_list_empty();
+    if (ScannedCodeUnits >= 0) {
+        int i, len;
+        MR_String s;
+        for (i = 0; i < NumberOfCaptures &&
+                (len = local_captures[i].len) > 0; i++)
+        {
+            MR_allocate_aligned_string_msg(s, len, MR_ALLOC_ID);
+            memcpy(s, local_captures[i].ptr, len);
+            s[len] = '\\0';
+            CapturesRev = MR_list_cons(s, CapturesRev);
+        }
+    }
 ").
 
+    % error_code_message(Code, Message):
+    %
+    % Succeeds if `Code' represents the error message `Message',
+    % fails iff Code represents `no match'.
+    %
+:- pred error_code_message(int::in, string::out) is semidet.
+
+:- pragma foreign_proc("C",
+    error_code_message(Code::in, Message::out),
+    [promise_pure, will_not_call_mercury],
+"
+    SUCCESS_INDICATOR = MR_TRUE;
+    switch (Code) {
+        case SLRE_NO_MATCH:
+            SUCCESS_INDICATOR = MR_FALSE;
+            Message = NULL;
+        break;
+        case SLRE_UNEXPECTED_QUANTIFIER:
+            Message = (MR_String)""unexpected quantifier"";
+        break;
+        case SLRE_UNBALANCED_BRACKETS:
+            Message = (MR_String)""unbalanced brackets"";
+        break;
+        case SLRE_INTERNAL_ERROR:
+            Message = (MR_String)""internal error"";
+        break;
+        case SLRE_INVALID_CHARACTER_SET:
+            Message = (MR_String)""invalid_character set"";
+        break;
+        case SLRE_INVALID_METACHARACTER:
+            Message = (MR_String)""invalid metacharacter"";
+        break;
+        case SLRE_CAPS_ARRAY_TOO_SMALL:
+            Message = (MR_String)""capture array too small"";
+        break;
+        case SLRE_TOO_MANY_BRANCHES:
+            Message = (MR_String)""too many branches"";
+        break;
+        case SLRE_TOO_MANY_BRACKETS:
+            Message = (MR_String)""too many brackets"";
+        break;
+        default:
+            Message = (MR_String)""unknown error"";
+        break;
+    }
+").
 %----------------------------------------------------------------------------%
 :- end_module mercury_slre.
 %----------------------------------------------------------------------------%

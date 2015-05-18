@@ -13,3 +13,6 @@ Mercury.modules
 *.beams
 *.d
 *.c_date
+slre.[ohc]
+test_*_slre
+*.gch
