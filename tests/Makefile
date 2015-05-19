@@ -28,10 +28,10 @@ tests.clean:
 	$(DEL_FILE) $(RESS)
 
 .PHONY: clean
-clean: $(SLRE_TEST_SERVER).stop tests.clean
-	$(MMC) --make $(SLRE_TEST_SERVER).clean
+clean: tests.clean
+	$(MMC) --make test_mercury_slre.clean
 	$(DEL_DIR) Mercury
 	$(DEL_FILE) Mercury.modules
 	$(DEL_FILE) FAILED_TESTS ABORTED_TESTS
 	$(DEL_FILE) $(SLRE_OBJ)
-	$(DEL_FILE) $(SLRE_TEST_SERVER)$(EXE_EXT)
+	$(DEL_FILE) test_mercury_slre$(EXE_EXT)

@@ -36,7 +36,7 @@
 %----------------------------------------------------------------------------%
 
 main(!IO) :-
-    ( if matches("^(\\d+)([a-z]+)$", "abc", 2, match(Captures, _)) then
+    ( if matches("^(\\d+)$", "123", match(Captures, _)) then
         print_line("ok", !IO),
         foldl(print_line, Captures, !IO)
     else

@@ -41,6 +41,8 @@ SLRE_OBJ := slre$(OBJ_EXT)
 
 ifeq ($(CC_TYPE),msvc)
     SLRE_CFLAGS += -nologo
+else
+    SLRE_CFLAGS += -Wall -ansi -pedantic
 endif
 
 # The expected outputs do not use CRLF line endings,

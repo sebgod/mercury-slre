@@ -30,11 +30,11 @@
 
 :- type captures == list(string).
 
-    % matches(RegEx, Text, NumberOfCaptures, Match):
+    % matches(RegEx, Text, Match):
     %
     % Fails if no match was found.
     %
-:- pred matches(string::in, string::in, int::in, match::out) is semidet.
+:- pred matches(string::in, string::in, match::out) is semidet.
 
 %----------------------------------------------------------------------------%
 %----------------------------------------------------------------------------%
@@ -44,8 +44,8 @@
 :- import_module int.     % for `>='/2
 :- import_module require.
 
-matches(RegEx, Text, NumberOfCaptures, Match) :-
-    match_impl(RegEx, Text, NumberOfCaptures, Length, CapturesRev),
+matches(RegEx, Text, Match) :-
+    match_impl(RegEx, Text, Length, CapturesRev),
     ( if Length >= 0 then
         Match = match(Captures, Length),
         Captures = reverse(CapturesRev)
@@ -65,32 +65,46 @@ matches(RegEx, Text, NumberOfCaptures, Match) :-
     %
 :- pragma foreign_decl("C", include_file("slre.h")).
 
-    % match_impl(RegEx, Text, NumberOfCaptures, ResultCode, CapturesRev):
+    % match_impl(RegEx, Text, ResultCode, CapturesRev):
     %
-:- pred match_impl(string::in, string::in, int::in,
-    int::out, captures::out) is det.
+:- pred match_impl(string::in, string::in, int::out, captures::out) is det.
 
 :- pragma foreign_proc("C",
-    match_impl(RegEx::in, Text::in, NumberOfCaptures::in,
-        ScannedCodeUnits::out, CapturesRev::out),
+    match_impl(RegEx::in, Text::in, ScannedCodeUnits::out, CapturesRev::out),
     [promise_pure, may_call_mercury],
 "
-    struct slre_cap local_captures[NumberOfCaptures];
-    ScannedCodeUnits = slre_match(RegEx, Text, strlen(Text),
-        local_captures, NumberOfCaptures, 0);
+    struct slre_regex_info info;
+    int flags = 0;
+    int num_caps;
+
+    memset(&info, 0, sizeof(struct slre_regex_info));
+
+    /* we use ScannedCodeUnits to store the number of brackets or the error
+     * code from compiling the regular expression */
+    ScannedCodeUnits = slre_compile(RegEx, strlen(RegEx), flags, &info);
+    num_caps = ScannedCodeUnits - 1; /* substract implicit global bracket */
 
     CapturesRev = MR_list_empty();
     if (ScannedCodeUnits >= 0) {
-        int i, len;
-        MR_String s;
-        for (i = 0; i < NumberOfCaptures &&
-                (len = local_captures[i].len) > 0; i++)
-        {
-            MR_allocate_aligned_string_msg(s, len, MR_ALLOC_ID);
-            memcpy(s, local_captures[i].ptr, len);
-            s[len] = '\\0';
-            CapturesRev = MR_list_cons(s, CapturesRev);
+        struct slre_cap *local_captures =
+            MR_GC_NEW_ARRAY(struct slre_cap, num_caps);
+
+        memset(local_captures, 0, sizeof(struct slre_cap) * num_caps);
+        ScannedCodeUnits = slre_match_reuse(&info, Text, strlen(Text),
+            local_captures, num_caps);
+
+        if (ScannedCodeUnits >= 0) {
+            int i, len;
+            MR_String s;
+            for (i = 0; i < num_caps && (len = local_captures[i].len) > 0; i++)
+            {
+                MR_allocate_aligned_string_msg(s, len, MR_ALLOC_ID);
+                memcpy(s, local_captures[i].ptr, len);
+                s[len] = '\\0';
+                CapturesRev = MR_list_cons((MR_Word)s, CapturesRev);
+            }
         }
+        MR_GC_free(local_captures);
     }
 ").
 
