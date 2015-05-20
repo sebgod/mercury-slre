@@ -1,0 +1,2 @@
+ASSERT\(slre_match\("([^"]+)",\s*"([^"]+)",\s*\d+,\s+(NULL|caps),\s*(\d+),\s*(\d+)\)\s*==\s*(\d+|[A_Z]\s+).*
+ASSERT(slre_match("x|$", "abcd", 4, NULL, 0, 0) == 4;

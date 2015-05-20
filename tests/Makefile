@@ -1,27 +1,28 @@
 include ../Make.options
 
-EXPS := $(wildcard internal/*.exp)
+EXPS := $(wildcard manual/*.exp)
 RESS := $(patsubst %.exp,%.res,$(EXPS))
+TEST_MODULE := test_mercury_slre
+TEST_EXE    := $(TEST_MODULE)$(EXE_EXT)
 
 .PHONY: runtests
-runtests: $(RESS)
+runtests: $(TEST_EXE) $(RESS)
 
 Mercury.modules: $(wildcard *.m) $(wildcard ../src/*.m)
 	@echo Call test clean to ensure testing of changed code
 	$(MAKE) tests.clean
 	$(MMC) -f $^
 
-test_mercury_slre: Mercury.modules $(SLRE_OBJ)
+$(TEST_EXE): Mercury.modules $(SLRE_OBJ) $(wildcard ../src/*.[chm])
 	$(MMC) $(MCFLAGS) --make $@ --link-object $(SLRE_OBJ) $(MLLIBS)
 
 $(SLRE_OBJ):
 	cd ../src && $(MAKE) $@
 	$(HARDLINK) ../src/$@ $@
 
-%.res: %.exp
-	@echo testing $*
-	$(CURL) $(CURL_FLAGS) http://127.0.0.1:$(SLRE_TEST_PORT)/$* | \
-		$(DIFF) $(DIFF_FLAGS) $< - >$*.res
+%.res: %.exp %.inp
+	@echo testing $*.inp
+	@./$(TEST_MODULE) < $*.inp | $(DIFF) $(DIFF_FLAGS) $< - >$*.res
 
 .PHONY: tests.clean
 tests.clean:
@@ -29,9 +30,9 @@ tests.clean:
 
 .PHONY: clean
 clean: tests.clean
-	$(MMC) --make test_mercury_slre.clean
+	$(MMC) --make $(TEST_MODULE).clean
 	$(DEL_DIR) Mercury
 	$(DEL_FILE) Mercury.modules
 	$(DEL_FILE) FAILED_TESTS ABORTED_TESTS
 	$(DEL_FILE) $(SLRE_OBJ)
-	$(DEL_FILE) test_mercury_slre$(EXE_EXT)
+	$(DEL_FILE) $(TEST_EXE)

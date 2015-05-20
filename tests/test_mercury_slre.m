@@ -27,21 +27,48 @@
 
 :- import_module mercury_slre.
 
-:- import_module bool.
 :- import_module int.
 :- import_module list.
-:- import_module maybe.
 :- import_module string.
 
 %----------------------------------------------------------------------------%
 
 main(!IO) :-
-    ( if matches("^(\\d+)$", "123", match(Captures, _)) then
-        print_line("ok", !IO),
-        foldl(print_line, Captures, !IO)
-    else
-        print_line("no match", !IO)
+    io.read_line_as_string(RegExRes, !IO),
+    ( RegExRes = ok(RegEx),
+        match_lines(RegEx, !IO)
+    ; RegExRes = error(Error : io.error),
+        print_line(stderr_stream, error_message(Error) : string, !IO)
+    ; RegExRes = eof,
+        print_line(stderr_stream, "premature end of file", !IO)
     ).
+
+:- pred match_lines(string::in, io::di, io::uo) is det.
+
+match_lines(RegEx, !IO) :-
+    PrintWithTab = (pred(T::in, !.IO::di, !:IO::uo) is det :-
+        io.print("\t", !IO),
+        io.print(T, !IO)
+    ),
+    io.read_line_as_string(TextRes, !IO),
+    ( TextRes = ok(Text),
+        ( if
+            matches(RegEx, Text, match(Captures, ScannedCodeUnits)),
+            ScannedCodeUnits >= 0
+        then
+            print("ok", !IO),
+            foldl(PrintWithTab, Captures, !IO),
+            nl(!IO)
+        else
+            true
+        ),
+        match_lines(RegEx, !IO)
+    ; TextRes = error(Error : io.error),
+        print_line(stderr_stream, error_message(Error) : string, !IO)
+    ; TextRes = eof,
+        true
+    ).
+
 
 %----------------------------------------------------------------------------%
 :- end_module test_mercury_slre.
