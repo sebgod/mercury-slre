@@ -1,7 +1,9 @@
 include ../Make.options
 
+INPS := $(wildcard manual/*.inp)
 EXPS := $(wildcard manual/*.exp)
-RESS := $(patsubst %.exp,%.res,$(EXPS))
+EXPS := $(patsubst %.inp,%.exp,$(INPS))
+RESS := $(patsubst %.inp,%.res,$(INPS))
 TEST_MODULE := test_mercury_slre
 TEST_EXE    := $(TEST_MODULE)$(EXE_EXT)
 
@@ -19,6 +21,13 @@ $(TEST_EXE): Mercury.modules $(SLRE_OBJ) $(wildcard ../src/*.[chm])
 $(SLRE_OBJ):
 	cd ../src && $(MAKE) $@
 	$(HARDLINK) ../src/$@ $@
+
+m_c :=,\s*
+m_string :=\"([^\"]+)\"$(m_c)
+m_num :=([0-9]+)$(m_c)
+re_assert :=^\s*ASSERT[(]slre_match[(]$(m_string)$(m_string)[0-9]+$(m_c)(NULL|caps)$(m_c)$(m_num)([A-Z_]+|[0-9]+)[)]\s*==\s*([A-Z_]+|[0-9]+)[)];
+manual/assert.exp: ../src/slre/unit_test.c Makefile
+	$(SED) -e "N; s/(==|,|[)])\n\s*/\1 /; P; D" <$< | $(SED) -n -e "s/$(re_assert)/ok\t\1\t\2\t\3\t\4\t\5\t\6/p" - >$@
 
 %.res: %.exp %.inp
 	@echo testing $*.inp
