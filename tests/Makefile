@@ -4,16 +4,18 @@ EXPS := $(wildcard manual/*.exp)
 RESS := $(patsubst %.exp,%.res,$(EXPS))
 TEST_MODULE := test_mercury_slre
 TEST_EXE    := $(TEST_MODULE)$(EXE_EXT)
+SRC_FILES   := $(wildcard ../src/*.[chm])
+TEST_FILES  := $(wildcard *.m)
 
 .PHONY: runtests
 runtests: $(TEST_EXE) $(RESS)
 
-Mercury.modules: $(wildcard *.m) $(wildcard ../src/*.m)
+Mercury.modules: $(TEST_FILES) $(SRC_FILES)
 	@echo Call test clean to ensure testing of changed code
 	$(MAKE) tests.clean
-	$(MMC) -f $^
+	$(MMC) -f $(filter %.m,$^)
 
-$(TEST_EXE): Mercury.modules $(SLRE_OBJ) $(wildcard ../src/*.[chm])
+$(TEST_EXE): Mercury.modules $(SLRE_OBJ) $(SRC_FILES)
 	$(MMC) $(MCFLAGS) --make $@ --link-object $(SLRE_OBJ) $(MLLIBS)
 
 $(SLRE_OBJ):
