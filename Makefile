@@ -9,6 +9,11 @@ clean:
 	cd src && $(MAKE) clean
 	cd tests && $(MAKE) clean
 
+.PHONY: realclean
+realclean:
+	cd src && $(MAKE) realclean
+	cd tests && $(MAKE) realclean
+
 .PHONY: tests
 tests:
 	cd tests && $(MAKE) runtests

@@ -29,12 +29,16 @@ $(SLRE_OBJ):
 .PHONY: tests.clean
 tests.clean:
 	$(DEL_FILE) $(RESS)
+	$(DEL_FILE) FAILED_TESTS ABORTED_TESTS
 
 .PHONY: clean
 clean: tests.clean
-	$(MMC) --make $(TEST_MODULE).clean
+	$(MMC) $(MCFLAGS) --make $(TEST_MODULE).clean
+
+.PHONY: realclean
+realclean: tests.clean
+	$(MMC) $(MCFLAGS) --make $(TEST_MODULE).realclean 
 	$(DEL_DIR) Mercury
 	$(DEL_FILE) Mercury.modules
-	$(DEL_FILE) FAILED_TESTS ABORTED_TESTS
 	$(DEL_FILE) $(SLRE_OBJ)
 	$(DEL_FILE) $(TEST_EXE)
